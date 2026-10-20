@@ -21,6 +21,7 @@ An open-source Max external for the ENTTEC DMX USB Pro (macOS Apple Silicon / In
 |---|---|
 | `<ch> <val> [<ch> <val> ...]` | チャンネル (1–512) に値 (0–255、float 可) をセット。ch 0 は全チャンネル |
 | `open <device>` / `close` | 接続 / 切断 |
+| `open serial <番号>` | シリアル番号で接続（2台使うときにポート名が入れ替わっても安全。新規） |
 | `menu` | 右アウトレットに umenu 用の `clear` / `append None` / `append <device>...` を出力 |
 | `<device>` / `None` | umenu で選んだ名前をそのまま送ると接続、`None` で切断 |
 | `getdevs` | 接続中のデバイス一覧を Max ウィンドウに表示 |
@@ -39,10 +40,12 @@ An open-source Max external for the ENTTEC DMX USB Pro (macOS Apple Silicon / In
 | `@refresh` | 40 | 送信レート (1–44 fps) |
 | `@startcode` | 0 | DMX スタートコード |
 | `@baudrate` | 57600 | 互換のため受け付けるだけ（USB 接続なので効果なし） |
+| `@rxmode` | 0 | 受信の出力形式。0 = 変化したスロットごと（旧互換）、1 = 毎フレーム 512 個のリスト（新規） |
+| `@autoreconnect` | 1 | USB を挿し直したら自動で再接続（新規） |
 
 | アウトレット | 内容 |
 |---|---|
-| 左 | 受信モード時、変化したスロットごとに `<startcode> <channel> <value>` |
+| 左 | 受信モード時、変化したスロットごとに `<startcode> <channel> <value>`（`@rxmode 1` なら 512 個のリスト） |
 | 中 | 接続状態 (0/1) |
 | 右 | umenu 用メッセージ |
 

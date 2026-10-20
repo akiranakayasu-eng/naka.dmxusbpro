@@ -23,7 +23,8 @@ project(dmxusbpro-max C)
 # Portable protocol + serial code, shared by the external and the tests
 add_library(dmxusbpro_core STATIC
   source/core/dmxusbpro_protocol.c
-  source/core/serial_port.c)
+  source/core/serial_port.c
+  source/core/dmxusbpro_device.c)
 target_include_directories(dmxusbpro_core PUBLIC source/core)
 set_target_properties(dmxusbpro_core PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 99)
 
@@ -36,4 +37,9 @@ if(DMXUSBPRO_BUILD_TESTS)
   add_executable(test_protocol tests/test_protocol.c)
   target_link_libraries(test_protocol PRIVATE dmxusbpro_core)
   add_test(NAME protocol COMMAND test_protocol)
+
+  find_package(Threads REQUIRED)
+  add_executable(test_device tests/test_device.c)
+  target_link_libraries(test_device PRIVATE dmxusbpro_core Threads::Threads)
+  add_test(NAME device COMMAND test_device)
 endif()

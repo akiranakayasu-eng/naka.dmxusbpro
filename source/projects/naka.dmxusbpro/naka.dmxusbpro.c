@@ -22,10 +22,14 @@
  *   setparams <break> <mab> <rate>    raw widget params (extension)
  *   bang                              resend the current frame
  *   firmware                          not supported (prints a notice)
+ *   open serial <number>              open the interface with that serial number
  *
  * Attributes: @channels (1..512, default 512), @refresh (1..44, default 40),
  *             @startcode (0..255, default 0), @baudrate (accepted, unused:
- *             the widget is a USB device so baud rate has no effect)
+ *             the widget is a USB device so baud rate has no effect),
+ *             @rxmode (0 = one list per changed slot, as dmxusbpro 1.x;
+ *             1 = the whole universe as one 512 element list per frame),
+ *             @autoreconnect (1 = reopen the device when it is plugged back in)
  *
  * Outlets:
  *   0  received DMX, one list per changed slot: <startcode> <channel> <value>
@@ -44,6 +48,7 @@
 #include "ext_systime.h"
 
 #include "dmxusbpro_protocol.h"
+#include "dmxusbpro_device.h"
 #include "serial_port.h"
 
 #include <math.h>
@@ -52,6 +57,8 @@
 #define MAX_PORTS     64
 #define CMD_QUEUE_LEN 1024
 #define US_PER_UNIT   10.67
+#define RECONNECT_MS  1000
+#define PROBE_MS      300
 
 typedef struct _dmxusbpro {
     t_object ob;
@@ -80,6 +87,11 @@ typedef struct _dmxusbpro {
     dup_widget_params params;       /* last known widget timing */
     int      params_quiet;          /* replies to our own query aren't printed */
     char     devname[256];
+    char     want_path[256];        /* device to reconnect to */
+    uint32_t want_serial;           /* or its serial number, if opened by serial */
+    int      user_closed;
+    void    *reconnect_clock;
+    void    *reconnect_qelem;
 
     /* I/O thread */
     t_systhread thread;
@@ -93,6 +105,8 @@ typedef struct _dmxusbpro {
     t_atom_long refresh;
     t_atom_long startcode;
     t_atom_long baudrate;
+    t_atom_long rxmode;
+    t_atom_long autoreconnect;
 
     char port_names[MAX_PORTS][256];
     int  nports;
@@ -113,6 +127,10 @@ static void dmxusbpro_menu(t_dmxusbpro *x);
 static void dmxusbpro_open(t_dmxusbpro *x, t_symbol *s, long argc, t_atom *argv);
 static void dmxusbpro_anything(t_dmxusbpro *x, t_symbol *s, long argc, t_atom *argv);
 static void dmxusbpro_close(t_dmxusbpro *x);
+static void dmxusbpro_user_close(t_dmxusbpro *x);
+static void dmxusbpro_reconnect_tick(t_dmxusbpro *x);
+static void dmxusbpro_reconnect(t_dmxusbpro *x);
+static t_max_err dmxusbpro_rxmode_set(t_dmxusbpro *x, void *attr, long argc, t_atom *argv);
 static void dmxusbpro_send(t_dmxusbpro *x);
 static void dmxusbpro_receive(t_dmxusbpro *x);
 static void dmxusbpro_getparams(t_dmxusbpro *x);
@@ -139,7 +157,7 @@ void ext_main(void *r)
     class_addmethod(c, (method)dmxusbpro_getdevs,   "getdevs",   0);
     class_addmethod(c, (method)dmxusbpro_menu,      "menu",      0);
     class_addmethod(c, (method)dmxusbpro_open,      "open",      A_GIMME, 0);
-    class_addmethod(c, (method)dmxusbpro_close,     "close",     0);
+    class_addmethod(c, (method)dmxusbpro_user_close, "close",    0);
     class_addmethod(c, (method)dmxusbpro_send,      "send",      0);
     class_addmethod(c, (method)dmxusbpro_receive,   "receive",   0);
     class_addmethod(c, (method)dmxusbpro_getparams, "getparams", 0);
@@ -169,6 +187,15 @@ void ext_main(void *r)
     CLASS_ATTR_LONG(c, "baudrate", 0, t_dmxusbpro, baudrate);
     CLASS_ATTR_LABEL(c, "baudrate", 0, "Baud rate (ignored, kept for compatibility)");
 
+    CLASS_ATTR_LONG(c, "rxmode", 0, t_dmxusbpro, rxmode);
+    CLASS_ATTR_FILTER_CLIP(c, "rxmode", 0, 1);
+    CLASS_ATTR_ACCESSORS(c, "rxmode", NULL, dmxusbpro_rxmode_set);
+    CLASS_ATTR_ENUMINDEX2(c, "rxmode", 0, "changed slots", "whole universe");
+    CLASS_ATTR_LABEL(c, "rxmode", 0, "Receive output format");
+
+    CLASS_ATTR_LONG(c, "autoreconnect", 0, t_dmxusbpro, autoreconnect);
+    CLASS_ATTR_STYLE_LABEL(c, "autoreconnect", 0, "onoff", "Reconnect when plugged back in");
+
     class_register(CLASS_BOX, c);
     s_class = c;
 
@@ -195,6 +222,9 @@ static void *dmxusbpro_new(t_symbol *s, long argc, t_atom *argv)
     x->refresh = 40;
     x->startcode = 0;
     x->baudrate = 57600;
+    x->autoreconnect = 1;
+    x->reconnect_clock = clock_new(x, (method)dmxusbpro_reconnect_tick);
+    x->reconnect_qelem = qelem_new(x, (method)dmxusbpro_reconnect);
     x->params.break_time = 9;   /* widget defaults until getparams answers */
     x->params.mab_time = 1;
     x->params.refresh_rate = 40;
@@ -216,7 +246,11 @@ static void *dmxusbpro_new(t_symbol *s, long argc, t_atom *argv)
 static void dmxusbpro_free(t_dmxusbpro *x)
 {
     x->out_state = NULL; /* no output while being freed */
+    x->user_closed = 1;
+    clock_unset(x->reconnect_clock);
     dmxusbpro_close(x);
+    object_free(x->reconnect_clock);
+    qelem_free(x->reconnect_qelem);
     qelem_free(x->qelem);
     systhread_mutex_free(x->mutex);
 }
@@ -398,7 +432,7 @@ static void dmxusbpro_receive(t_dmxusbpro *x)
     /* report every slot once after switching, then only changes */
     memset(x->rx_reported, 0xFF, sizeof(x->rx_reported));
     if (x->port)
-        enqueue(x, pkt, dup_encode_receive_on_change(1, pkt, sizeof(pkt)));
+        enqueue(x, pkt, dup_encode_receive_on_change(x->rxmode ? 0 : 1, pkt, sizeof(pkt)));
     object_post((t_object *)x, "set 'receive' mode");
 }
 
@@ -487,24 +521,16 @@ static void set_state(t_dmxusbpro *x, long state)
         outlet_int(x->out_state, state);
 }
 
-static void dmxusbpro_open(t_dmxusbpro *x, t_symbol *s, long argc, t_atom *argv)
+/* Opens path and starts the I/O thread. Returns 0 on success. */
+static int open_path(t_dmxusbpro *x, const char *path)
 {
-    char path[256];
     serial_port *p;
     uint8_t pkt[16];
 
-    if (argc < 1 || resolve_port(x, argv, path, sizeof(path)) != 0) {
-        object_error((t_object *)x, "'open <device>' needs device name");
-        return;
-    }
     dmxusbpro_close(x);
-
     p = serial_open(path);
-    if (!p) {
-        object_error((t_object *)x, "failed to open device \"%s\"", path);
-        set_state(x, 0);
-        return;
-    }
+    if (!p)
+        return -1;
     x->port = p;
     snprintf(x->devname, sizeof(x->devname), "%s", path);
     dup_decoder_init(&x->decoder, dmxusbpro_on_packet, x);
@@ -518,7 +544,7 @@ static void dmxusbpro_open(t_dmxusbpro *x, t_symbol *s, long argc, t_atom *argv)
     x->params_quiet = 1;
     enqueue(x, pkt, dup_encode_get_params(pkt, sizeof(pkt)));
     if (x->receiving)
-        enqueue(x, pkt, dup_encode_receive_on_change(1, pkt, sizeof(pkt)));
+        enqueue(x, pkt, dup_encode_receive_on_change(x->rxmode ? 0 : 1, pkt, sizeof(pkt)));
 
     x->running = 1;
     if (systhread_create((method)dmxusbpro_threadproc, x, 0, 0, 0, &x->thread) != 0) {
@@ -527,11 +553,56 @@ static void dmxusbpro_open(t_dmxusbpro *x, t_symbol *s, long argc, t_atom *argv)
         x->thread = NULL;
         serial_close(x->port);
         x->port = NULL;
+        return -1;
+    }
+    set_state(x, 1);
+    return 0;
+}
+
+/* Finds the port of the interface with the given serial number. */
+static int find_by_serial(t_dmxusbpro *x, uint32_t serial, char *path, size_t size)
+{
+    int i;
+    uint32_t got;
+    scan_ports(x);
+    for (i = 0; i < x->nports; i++) {
+        if (dup_probe_serial(x->port_names[i], PROBE_MS, &got) == 0 && got == serial) {
+            snprintf(path, size, "%s", x->port_names[i]);
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static void dmxusbpro_open(t_dmxusbpro *x, t_symbol *s, long argc, t_atom *argv)
+{
+    char path[256];
+    uint32_t serial = 0;
+
+    if (argc >= 2 && atom_getsym(argv) == gensym("serial")) {
+        serial = (uint32_t)atom_getlong(argv + 1);
+        dmxusbpro_close(x); /* the port can't be probed while we hold it */
+        if (find_by_serial(x, serial, path, sizeof(path)) != 0) {
+            object_error((t_object *)x, "no interface with serial number %lu found", (unsigned long)serial);
+            set_state(x, 0);
+            return;
+        }
+    } else if (argc < 1 || resolve_port(x, argv, path, sizeof(path)) != 0) {
+        object_error((t_object *)x, "'open <device>' needs device name");
+        return;
+    }
+
+    clock_unset(x->reconnect_clock);
+    x->user_closed = 0;
+    x->want_serial = serial;
+    snprintf(x->want_path, sizeof(x->want_path), "%s", path);
+
+    if (open_path(x, path) != 0) {
+        object_error((t_object *)x, "failed to open device \"%s\"", path);
         set_state(x, 0);
         return;
     }
     object_post((t_object *)x, "opened device '%s'", path);
-    set_state(x, 1);
 }
 
 /* A bare device name (e.g. from a umenu) opens it; None closes. */
@@ -540,7 +611,7 @@ static void dmxusbpro_anything(t_dmxusbpro *x, t_symbol *s, long argc, t_atom *a
     t_atom a;
     int i;
     if (s == ps_none) {
-        dmxusbpro_close(x);
+        dmxusbpro_user_close(x);
         return;
     }
     scan_ports(x);
@@ -569,6 +640,54 @@ static void dmxusbpro_close(t_dmxusbpro *x)
         object_post((t_object *)x, "closed device '%s'", x->devname);
         set_state(x, 0);
     }
+}
+
+/* close / None: stop and don't reconnect */
+static void dmxusbpro_user_close(t_dmxusbpro *x)
+{
+    x->user_closed = 1;
+    clock_unset(x->reconnect_clock);
+    dmxusbpro_close(x);
+}
+
+/* clock callbacks run in the scheduler; serial I/O belongs on the main thread */
+static void dmxusbpro_reconnect_tick(t_dmxusbpro *x)
+{
+    qelem_set(x->reconnect_qelem);
+}
+
+static void dmxusbpro_reconnect(t_dmxusbpro *x)
+{
+    char path[256];
+    int i, found = 0;
+
+    if (x->port || x->user_closed || !x->autoreconnect || !x->want_path[0])
+        return;
+    if (x->want_serial) {
+        found = find_by_serial(x, x->want_serial, path, sizeof(path)) == 0;
+    } else {
+        scan_ports(x);
+        for (i = 0; i < x->nports && !found; i++)
+            found = strcmp(x->port_names[i], x->want_path) == 0;
+        snprintf(path, sizeof(path), "%s", x->want_path);
+    }
+    if (found && open_path(x, path) == 0) {
+        object_post((t_object *)x, "reconnected to '%s'", path);
+        return;
+    }
+    clock_delay(x->reconnect_clock, RECONNECT_MS);
+}
+
+static t_max_err dmxusbpro_rxmode_set(t_dmxusbpro *x, void *attr, long argc, t_atom *argv)
+{
+    uint8_t pkt[16];
+    if (argc < 1)
+        return MAX_ERR_NONE;
+    x->rxmode = CLAMP(atom_getlong(argv), 0, 1);
+    memset(x->rx_reported, 0xFF, sizeof(x->rx_reported));
+    if (x->port && x->receiving)
+        enqueue(x, pkt, dup_encode_receive_on_change(x->rxmode ? 0 : 1, pkt, sizeof(pkt)));
+    return MAX_ERR_NONE;
 }
 
 /* ---- I/O thread ------------------------------------------------------- */
@@ -693,6 +812,10 @@ static void dmxusbpro_qfn(t_dmxusbpro *x)
     if (io_error) {
         object_error((t_object *)x, "device disconnected or I/O error");
         dmxusbpro_close(x);
+        if (x->autoreconnect && !x->user_closed) {
+            object_post((t_object *)x, "waiting for the device to come back");
+            clock_delay(x->reconnect_clock, RECONNECT_MS);
+        }
     }
     if (have_params) {
         x->params.break_time = p.break_time;
@@ -710,7 +833,13 @@ static void dmxusbpro_qfn(t_dmxusbpro *x)
     }
     if (have_serial)
         object_post((t_object *)x, "serial number: %lu", (unsigned long)serial);
-    if (have_dmx) {
+    if (have_dmx && x->rxmode) {
+        /* the whole universe as one list */
+        t_atom av[DUP_DMX_CHANNELS];
+        for (i = 0; i < DUP_DMX_CHANNELS; i++)
+            atom_setlong(av + i, uni[i + 1]);
+        outlet_list(x->out_dmx, NULL, DUP_DMX_CHANNELS, av);
+    } else if (have_dmx) {
         /* one <startcode> <channel> <value> list per changed slot */
         t_atom av[3];
         int sc_changed = uni[0] != x->rx_reported[0];
