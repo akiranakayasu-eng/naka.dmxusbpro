@@ -66,7 +66,7 @@ cmake --build build --config Release
 ctest --test-dir build -C Release      # プロトコルの単体テスト
 ```
 
-成果物は `externals/naka.dmxusbpro.mxo`（macOS universal）/ `externals/naka.dmxusbpro.mxe64`（Windows）に出力されます。help パッチは `help/naka.dmxusbpro.maxhelp` です。このフォルダを Max の検索パスに入れるか、リポジトリごと `~/Documents/Max 9/Packages/` に置いてください。
+成果物は `externals/naka.dmxusbpro.mxo`（macOS universal）/ `externals/naka.dmxusbpro.mxe64`（Windows）に出力されます。help パッチは `help/naka.dmxusbpro.maxhelp`、リファレンスは `docs/refpages/` にあります。このフォルダを Max の検索パスに入れるか、リポジトリごと `~/Documents/Max 9/Packages/` に置いてください。
 
 GitHub Actions で macOS / Windows のビルドとテストを自動実行します（`.github/workflows/build.yml`）。
 

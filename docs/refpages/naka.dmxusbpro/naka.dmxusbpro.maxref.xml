@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<c74object name="naka.dmxusbpro" module="max" category="DMX">
+  <digest>Send and receive DMX with the ENTTEC DMX USB Pro</digest>
+  <description>
+    naka.dmxusbpro sends and receives DMX512 through the ENTTEC DMX USB Pro interface.
+    It is message-compatible with dmxusbpro 1.x by Olaf Matthes and runs natively on
+    Apple Silicon, Intel Macs and Windows.
+  </description>
+  <metadatalist>
+    <metadata name="author">Akira Nakayasu</metadata>
+    <metadata name="tag">DMX</metadata>
+    <metadata name="tag">lighting</metadata>
+  </metadatalist>
+  <inletlist>
+    <inlet id="0" type="list">
+      <digest>&lt;channel&gt; &lt;value&gt; pairs and control messages</digest>
+    </inlet>
+  </inletlist>
+  <outletlist>
+    <outlet id="0" type="list"><digest>Received DMX: &lt;startcode&gt; &lt;channel&gt; &lt;value&gt;</digest></outlet>
+    <outlet id="1" type="int"><digest>Connection state (0/1)</digest></outlet>
+    <outlet id="2" type="list"><digest>Device menu messages for umenu</digest></outlet>
+  </outletlist>
+  <objarglist>
+    <objarg name="device" optional="1" type="symbol/int"><digest>Port name, unique part of it, or number</digest></objarg>
+    <objarg name="channels" optional="1" type="int"><digest>Channels to send (1-512)</digest></objarg>
+    <objarg name="refresh" optional="1" type="int"><digest>Frames per second (1-44)</digest></objarg>
+  </objarglist>
+  <methodlist>
+    <method name="list">
+      <arglist><arg name="channel" type="int"/><arg name="value" type="number"/></arglist>
+      <digest>Set channels with &lt;channel&gt; &lt;value&gt; pairs</digest>
+      <description>Channel 1-512, value 0-255. Channel 0 sets every channel. Several pairs can be sent in one list.</description>
+    </method>
+    <method name="ch">
+      <arglist><arg name="start" type="int"/><arg name="values" type="list"/></arglist>
+      <digest>Set consecutive channels from a start channel</digest>
+    </method>
+    <method name="open"><arglist><arg name="device" type="symbol/int"/></arglist><digest>Open an interface</digest></method>
+    <method name="close"><digest>Close the interface</digest></method>
+    <method name="menu"><digest>Output the device list for a umenu</digest></method>
+    <method name="getdevs"><digest>Print connected interfaces to the Max Console</digest></method>
+    <method name="blackout"><arglist><arg name="on" type="int"/></arglist><digest>Temporarily output zeros (values are kept)</digest></method>
+    <method name="send"><digest>Output mode (default)</digest></method>
+    <method name="receive"><digest>Input mode</digest></method>
+    <method name="getparams"><digest>Print firmware version and DMX timing</digest></method>
+    <method name="getserial"><digest>Print the interface serial number</digest></method>
+    <method name="breaktime"><arglist><arg name="microseconds" type="float"/></arglist><digest>Set DMX break time</digest></method>
+    <method name="mabtime"><arglist><arg name="microseconds" type="float"/></arglist><digest>Set DMX mark-after-break time</digest></method>
+    <method name="print"><digest>Print the object state</digest></method>
+    <method name="bang"><digest>Resend the current frame</digest></method>
+  </methodlist>
+  <attributelist>
+    <attribute name="channels" get="1" set="1" type="int" size="1"><digest>Number of channels to send (1-512)</digest></attribute>
+    <attribute name="refresh" get="1" set="1" type="int" size="1"><digest>Maximum frames per second (1-44)</digest></attribute>
+    <attribute name="startcode" get="1" set="1" type="int" size="1"><digest>DMX start code (0 = dimmer data)</digest></attribute>
+    <attribute name="baudrate" get="1" set="1" type="int" size="1"><digest>Accepted for compatibility, no effect</digest></attribute>
+  </attributelist>
+  <seealsolist>
+    <seealso name="serial"/>
+  </seealsolist>
+</c74object>
