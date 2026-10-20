@@ -28,7 +28,7 @@ target_include_directories(dmxusbpro_core PUBLIC source/core)
 set_target_properties(dmxusbpro_core PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 99)
 
 if(DMXUSBPRO_BUILD_EXTERNAL)
-  add_subdirectory(source/projects/dmxusbpro)
+  add_subdirectory(source/projects/naka.dmxusbpro)
 endif()
 
 if(DMXUSBPRO_BUILD_TESTS)

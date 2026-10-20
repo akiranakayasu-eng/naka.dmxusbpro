@@ -1,4 +1,4 @@
-# dmxusbpro for Max
+# naka.dmxusbpro for Max
 
 ENTTEC DMX USB Pro を Cycling '74 Max から直接動かすためのオープンソース外部オブジェクトです。
 An open-source Max external for the ENTTEC DMX USB Pro (macOS Apple Silicon / Intel, Windows).
@@ -7,12 +7,12 @@ An open-source Max external for the ENTTEC DMX USB Pro (macOS Apple Silicon / In
 
 ## 使い方 (Usage)
 
-旧 dmxusbpro 1.x（Olaf Matthes 作、更新終了）とメッセージ互換です。既存パッチはオブジェクトを差し替えるだけで動く想定です。
+旧 dmxusbpro 1.x（Olaf Matthes 作、更新終了）とメッセージ互換です。旧オブジェクトと同時にインストールできるよう名前は `naka.dmxusbpro` にしています。既存パッチはオブジェクト名を `dmxusbpro` → `naka.dmxusbpro` に書き換えるだけで動く想定です。
 
 ```
-[dmxusbpro]                          ← 引数なし。open で接続
-[dmxusbpro COM3 512 40]              ← <device> [<channels> <refresh>]
-[dmxusbpro @refresh 40 @channels 24]
+[naka.dmxusbpro]                     ← 引数なし。open で接続
+[naka.dmxusbpro COM3 512 40]         ← <device> [<channels> <refresh>]
+[naka.dmxusbpro @refresh 40 @channels 24]
 ```
 
 `<device>` はポート名（`/dev/cu.usbserial-XXXX`、`COM3`、または一意な一部分 `EN123456` など）か番号（Windows は `COM<n>`、macOS は `getdevs` の n 番目）。
@@ -66,14 +66,14 @@ cmake --build build --config Release
 ctest --test-dir build -C Release      # プロトコルの単体テスト
 ```
 
-成果物は `externals/dmxusbpro.mxo`（macOS universal）/ `externals/dmxusbpro.mxe64`（Windows）に出力されます。このフォルダを Max の検索パスに入れるか、リポジトリごと `~/Documents/Max 9/Packages/` に置いてください。
+成果物は `externals/naka.dmxusbpro.mxo`（macOS universal）/ `externals/naka.dmxusbpro.mxe64`（Windows）に出力されます。このフォルダを Max の検索パスに入れるか、リポジトリごと `~/Documents/Max 9/Packages/` に置いてください。
 
 GitHub Actions で macOS / Windows のビルドとテストを自動実行します（`.github/workflows/build.yml`）。
 
 ## ロードマップ
 
 - [ ] 実機での送信確認（macOS Apple Silicon / Windows）
-- [ ] help パッチ (`help/dmxusbpro.maxhelp`)
+- [ ] help パッチ (`help/naka.dmxusbpro.maxhelp`)
 - [ ] ホットプラグ時の自動再接続
 - [ ] 複数ウィジェットのシリアル番号指定オープン
 

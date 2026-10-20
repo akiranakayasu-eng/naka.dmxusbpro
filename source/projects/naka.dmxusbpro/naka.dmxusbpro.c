@@ -1,8 +1,8 @@
 /*
- * dmxusbpro — Max external for the ENTTEC DMX USB Pro
+ * naka.dmxusbpro — Max external for the ENTTEC DMX USB Pro
  *
  * Message interface is compatible with the discontinued dmxusbpro 1.x
- * object by Olaf Matthes, so existing patches keep working:
+ * object by Olaf Matthes, so existing patches only need the object name changed:
  *
  * Creation arguments: [<device> [<channels> [<refresh>]]]
  *   <device> is a port name (/dev/cu.usbserial-XXXX, COM3, or any unique
@@ -129,7 +129,7 @@ static void dmxusbpro_on_packet(void *ctx, uint8_t label, const uint8_t *data, s
 
 void ext_main(void *r)
 {
-    t_class *c = class_new("dmxusbpro", (method)dmxusbpro_new, (method)dmxusbpro_free,
+    t_class *c = class_new("naka.dmxusbpro", (method)dmxusbpro_new, (method)dmxusbpro_free,
                            sizeof(t_dmxusbpro), 0L, A_GIMME, 0);
 
     class_addmethod(c, (method)dmxusbpro_list,      "list",      A_GIMME, 0);
@@ -409,7 +409,7 @@ static void dmxusbpro_firmware(t_dmxusbpro *x, t_symbol *s, long argc, t_atom *a
 
 static void dmxusbpro_print(t_dmxusbpro *x)
 {
-    object_post((t_object *)x, "dmxusbpro (open source), %s",
+    object_post((t_object *)x, "naka.dmxusbpro (open source), %s",
                 x->port ? x->devname : "not connected");
     object_post((t_object *)x, "  mode: %s, channels: %ld, refresh: %ld Hz, startcode: %ld",
                 x->receiving ? "receive" : "send", (long)x->channels, (long)x->refresh,

@@ -21,7 +21,7 @@ jobs:
         run: ctest --test-dir build -C Release --output-on-failure
       - uses: actions/upload-artifact@v7
         with:
-          name: dmxusbpro-${{ runner.os }}
+          name: naka.dmxusbpro-${{ runner.os }}
           path: |
             externals/
           if-no-files-found: warn
