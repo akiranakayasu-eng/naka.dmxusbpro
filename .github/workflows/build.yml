@@ -24,4 +24,5 @@ jobs:
           name: naka.dmxusbpro-${{ runner.os }}
           path: |
             externals/
+            help/
           if-no-files-found: warn
