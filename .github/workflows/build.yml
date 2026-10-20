@@ -12,14 +12,14 @@ jobs:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build
         run: cmake --build build --config Release
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dmxusbpro-${{ runner.os }}
           path: |
