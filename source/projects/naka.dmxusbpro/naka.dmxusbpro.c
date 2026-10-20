@@ -54,6 +54,10 @@
 #include <math.h>
 #include <string.h>
 
+#ifndef NAKA_DMXUSBPRO_VERSION
+#define NAKA_DMXUSBPRO_VERSION "0.1.0"
+#endif
+
 #define MAX_PORTS     64
 #define CMD_QUEUE_LEN 1024
 #define US_PER_UNIT   10.67
@@ -198,6 +202,9 @@ void ext_main(void *r)
 
     class_register(CLASS_BOX, c);
     s_class = c;
+
+    post("naka.dmxusbpro %s - ENTTEC DMX USB Pro for Max, (c) 2026 Akira Nakayasu, MIT", NAKA_DMXUSBPRO_VERSION);
+    post("  https://github.com/akiranakayasu-eng/naka.dmxusbpro");
 
     ps_none = gensym("None");
     ps_clear = gensym("clear");
@@ -443,7 +450,7 @@ static void dmxusbpro_firmware(t_dmxusbpro *x, t_symbol *s, long argc, t_atom *a
 
 static void dmxusbpro_print(t_dmxusbpro *x)
 {
-    object_post((t_object *)x, "naka.dmxusbpro (open source), %s",
+    object_post((t_object *)x, "naka.dmxusbpro %s, %s", NAKA_DMXUSBPRO_VERSION,
                 x->port ? x->devname : "not connected");
     object_post((t_object *)x, "  mode: %s, channels: %ld, refresh: %ld Hz, startcode: %ld",
                 x->receiving ? "receive" : "send", (long)x->channels, (long)x->refresh,
