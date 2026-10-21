@@ -85,11 +85,15 @@ typedef struct _dmxusbpro {
     uint32_t rx_serial;
     int      rx_serial_ready;
     int      io_error;
+    char     io_error_msg[128];
 
     /* main thread only */
     uint8_t  rx_reported[1 + DUP_DMX_CHANNELS];
     dup_widget_params params;       /* last known widget timing */
     int      params_quiet;          /* replies to our own query aren't printed */
+    int      serial_quiet;
+    uint16_t firmware;              /* of the open interface, 0 = unknown */
+    uint32_t serial;                /* of the open interface, 0 = unknown */
     char     devname[256];
     char     want_path[256];        /* device to reconnect to */
     uint32_t want_serial;           /* or its serial number, if opened by serial */
@@ -452,6 +456,9 @@ static void dmxusbpro_print(t_dmxusbpro *x)
 {
     object_post((t_object *)x, "naka.dmxusbpro %s, %s", NAKA_DMXUSBPRO_VERSION,
                 x->port ? x->devname : "not connected");
+    if (x->port && x->firmware)
+        object_post((t_object *)x, "  firmware %d.%02d, serial number %lu", x->firmware >> 8,
+                    x->firmware & 0xFF, (unsigned long)x->serial);
     object_post((t_object *)x, "  mode: %s, channels: %ld, refresh: %ld Hz, startcode: %ld",
                 x->receiving ? "receive" : "send", (long)x->channels, (long)x->refresh,
                 (long)x->startcode);
@@ -547,8 +554,14 @@ static int open_path(t_dmxusbpro *x, const char *path)
     x->dirty = 1;
     systhread_mutex_unlock(x->mutex);
 
-    /* learn the current timing so breaktime/mabtime keep the other values */
+    /* identify the interface and learn the current timing so breaktime/mabtime
+     * keep the other values; the widget answers in order, so the serial number
+     * is known by the time the parameters arrive */
+    x->firmware = 0;
+    x->serial = 0;
+    x->serial_quiet = 1;
     x->params_quiet = 1;
+    enqueue(x, pkt, dup_encode_get_serial(pkt, sizeof(pkt)));
     enqueue(x, pkt, dup_encode_get_params(pkt, sizeof(pkt)));
     if (x->receiving)
         enqueue(x, pkt, dup_encode_receive_on_change(x->rxmode ? 0 : 1, pkt, sizeof(pkt)));
@@ -751,6 +764,7 @@ static void *dmxusbpro_threadproc(t_dmxusbpro *x)
     if (x->running) { /* left the loop because of an I/O error */
         systhread_mutex_lock(x->mutex);
         x->io_error = 1;
+        snprintf(x->io_error_msg, sizeof(x->io_error_msg), "%s", serial_last_error(x->port));
         systhread_mutex_unlock(x->mutex);
         qelem_set(x->qelem);
     }
@@ -802,6 +816,7 @@ static void dmxusbpro_qfn(t_dmxusbpro *x)
     dup_widget_params p;
     uint32_t serial = 0;
     int have_params, have_serial, have_dmx, io_error, i;
+    char io_error_msg[128];
     uint8_t uni[1 + DUP_DMX_CHANNELS];
 
     systhread_mutex_lock(x->mutex);
@@ -813,26 +828,42 @@ static void dmxusbpro_qfn(t_dmxusbpro *x)
     if (have_dmx)
         memcpy(uni, x->rx_universe, sizeof(uni));
     io_error = x->io_error;
+    snprintf(io_error_msg, sizeof(io_error_msg), "%s", x->io_error_msg);
     x->rx_params_ready = x->rx_serial_ready = x->rx_dirty = x->io_error = 0;
     systhread_mutex_unlock(x->mutex);
 
     if (io_error) {
-        object_error((t_object *)x, "device disconnected or I/O error");
+        object_error((t_object *)x, "device disconnected or I/O error (%s)",
+                     io_error_msg[0] ? io_error_msg : "unknown");
         dmxusbpro_close(x);
         if (x->autoreconnect && !x->user_closed) {
             object_post((t_object *)x, "waiting for the device to come back");
             clock_delay(x->reconnect_clock, RECONNECT_MS);
         }
     }
+    if (have_serial) {
+        x->serial = serial;
+        if (x->serial_quiet) {
+            x->serial_quiet = 0;
+            have_serial = 0;
+        }
+    }
     if (have_params) {
+        x->firmware = p.firmware_version;
         x->params.break_time = p.break_time;
         x->params.mab_time = p.mab_time;
         x->params.refresh_rate = p.refresh_rate;
     }
     if (have_params && x->params_quiet) {
         x->params_quiet = 0;
+        if (x->serial)
+            object_post((t_object *)x, "  firmware %d.%02d, serial number %lu", p.firmware_version >> 8,
+                        p.firmware_version & 0xFF, (unsigned long)x->serial);
+        else
+            object_post((t_object *)x, "  firmware %d.%02d", p.firmware_version >> 8,
+                        p.firmware_version & 0xFF);
     } else if (have_params) {
-        object_post((t_object *)x, "firmware version: %d.%d", p.firmware_version >> 8,
+        object_post((t_object *)x, "firmware version: %d.%02d", p.firmware_version >> 8,
                     p.firmware_version & 0xFF);
         object_post((t_object *)x, "break time: %g us", p.break_time * US_PER_UNIT);
         object_post((t_object *)x, "mark after break: %g us", p.mab_time * US_PER_UNIT);

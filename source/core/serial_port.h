@@ -27,6 +27,9 @@ int serial_write(serial_port *p, const unsigned char *buf, size_t len);
 /* Waits up to timeout_ms for data. Returns bytes read, 0 on timeout, -1 on error. */
 int serial_read(serial_port *p, unsigned char *buf, size_t len, int timeout_ms);
 
+/* Describes the last failed write or read on p (empty if none). */
+const char *serial_last_error(serial_port *p);
+
 /* Fills names with candidate ports. On macOS/Linux only USB serial devices
  * are listed. Returns the number of entries written. */
 int serial_list(char names[][256], int max);

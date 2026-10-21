@@ -13,7 +13,21 @@
 
 struct serial_port {
     HANDLE h;
+    char err[128];
 };
+
+static void set_error(serial_port *p, const char *what)
+{
+    DWORD e = GetLastError();
+    char msg[96] = "";
+    size_t n;
+    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, e, 0, msg,
+                   sizeof(msg), NULL);
+    n = strlen(msg);
+    while (n && (msg[n - 1] == '\r' || msg[n - 1] == '\n' || msg[n - 1] == '.'))
+        msg[--n] = 0;
+    snprintf(p->err, sizeof(p->err), "%s: %s (error %lu)", what, msg, (unsigned long)e);
+}
 
 serial_port *serial_open(const char *path)
 {
@@ -76,8 +90,10 @@ void serial_close(serial_port *p)
 int serial_write(serial_port *p, const unsigned char *buf, size_t len)
 {
     DWORD written = 0;
-    if (!WriteFile(p->h, buf, (DWORD)len, &written, NULL))
+    if (!WriteFile(p->h, buf, (DWORD)len, &written, NULL)) {
+        set_error(p, "write");
         return -1;
+    }
     return (int)written;
 }
 
@@ -90,9 +106,16 @@ int serial_read(serial_port *p, unsigned char *buf, size_t len, int timeout_ms)
         to.ReadTotalTimeoutConstant = (DWORD)timeout_ms;
         SetCommTimeouts(p->h, &to);
     }
-    if (!ReadFile(p->h, buf, (DWORD)len, &got, NULL))
+    if (!ReadFile(p->h, buf, (DWORD)len, &got, NULL)) {
+        set_error(p, "read");
         return -1;
+    }
     return (int)got;
+}
+
+const char *serial_last_error(serial_port *p)
+{
+    return p ? p->err : "";
 }
 
 int serial_list(char names[][256], int max)
@@ -119,7 +142,13 @@ int serial_list(char names[][256], int max)
 
 struct serial_port {
     int fd;
+    char err[128];
 };
+
+static void set_error(serial_port *p, const char *what, int e)
+{
+    snprintf(p->err, sizeof(p->err), "%s: %s (errno %d)", what, strerror(e), e);
+}
 
 serial_port *serial_open(const char *path)
 {
@@ -171,6 +200,7 @@ int serial_write(serial_port *p, const unsigned char *buf, size_t len)
         if (r < 0) {
             if (errno == EINTR)
                 continue;
+            set_error(p, "write", errno);
             return -1;
         }
         done += (size_t)r;
@@ -186,16 +216,34 @@ int serial_read(serial_port *p, unsigned char *buf, size_t len, int timeout_ms)
     pfd.events = POLLIN;
     pfd.revents = 0;
     r = poll(&pfd, 1, timeout_ms);
-    if (r < 0)
-        return errno == EINTR ? 0 : -1;
+    if (r < 0) {
+        if (errno == EINTR)
+            return 0;
+        set_error(p, "poll", errno);
+        return -1;
+    }
     if (r == 0)
         return 0;
-    if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL))
+    if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+        snprintf(p->err, sizeof(p->err), "poll: %s%s%s",
+                 (pfd.revents & POLLHUP) ? "hangup " : "",
+                 (pfd.revents & POLLERR) ? "error " : "",
+                 (pfd.revents & POLLNVAL) ? "invalid " : "");
         return -1;
+    }
     r = read(p->fd, buf, len);
-    if (r < 0)
-        return (errno == EAGAIN || errno == EINTR) ? 0 : -1;
+    if (r < 0) {
+        if (errno == EAGAIN || errno == EINTR)
+            return 0;
+        set_error(p, "read", errno);
+        return -1;
+    }
     return (int)r;
+}
+
+const char *serial_last_error(serial_port *p)
+{
+    return p ? p->err : "";
 }
 
 static int has_prefix(const char *s, const char *prefix)
