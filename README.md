@@ -59,6 +59,14 @@ An open-source Max external for the ENTTEC DMX USB Pro (macOS Apple Silicon / In
 - 対応ラベル: 3 Get Params / 4 Set Params / 5 Received DMX / 6 Output Only Send DMX / 8 Receive DMX on Change / 9 Change of State / 10 Get Serial。
 - DMX USB Pro Mk2 の2ポート目は ENTTEC の API キーが必要なため現状対象外です。
 
+## 互換機 (Compatible interfaces)
+
+ENTTEC の API（label 3/4/5/6/8/10）に沿った互換機でも使えます。自作の互換機 dmx_usb_pro（ATmega328P + FT245RL）で確認した注意点:
+
+- シリアル番号を書き込んでいないと `00000001` を返します。2 台を `open serial` で区別するには、それぞれ別の番号を書き込んでください。同じ番号の機器が複数あると、最初に見つかった方を開いて警告を出します。
+- label 9（変化分）が無く、変化したフレームを label 5 で返します。オブジェクトはどちらでも同じ出力になるので、`receive` はそのまま使えます。
+- `breaktime` / `mabtime` で変えた値は電源を切ると戻ります（純正も同じ）。
+
 ## ビルド (Build)
 
 CMake 3.25 以上。`max-sdk-base` は configure 時に自動取得します。

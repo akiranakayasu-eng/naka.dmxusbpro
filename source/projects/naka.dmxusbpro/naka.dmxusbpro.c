@@ -582,16 +582,20 @@ static int open_path(t_dmxusbpro *x, const char *path)
 /* Finds the port of the interface with the given serial number. */
 static int find_by_serial(t_dmxusbpro *x, uint32_t serial, char *path, size_t size)
 {
-    int i;
+    int i, found = 0;
     uint32_t got;
     scan_ports(x);
     for (i = 0; i < x->nports; i++) {
         if (dup_probe_serial(x->port_names[i], PROBE_MS, &got) == 0 && got == serial) {
-            snprintf(path, size, "%s", x->port_names[i]);
-            return 0;
+            if (!found++)
+                snprintf(path, size, "%s", x->port_names[i]);
         }
     }
-    return -1;
+    /* e.g. DIY compatibles that all report the default serial number */
+    if (found > 1)
+        object_warn((t_object *)x, "%d interfaces report serial number %lu, using '%s'", found,
+                    (unsigned long)serial, path);
+    return found ? 0 : -1;
 }
 
 static void dmxusbpro_open(t_dmxusbpro *x, t_symbol *s, long argc, t_atom *argv)
