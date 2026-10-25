@@ -1425,7 +1425,7 @@
          ],
          "numinlets": 1,
          "numoutlets": 0,
-         "text": "- an ENTTEC ODE Mk2 merges up to two senders instead; avoid sending"
+         "text": "- with an ENTTEC ODE Mk2, two senders mix as its merge setting says; avoid sending"
         }
        },
        {
