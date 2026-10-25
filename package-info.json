@@ -1,0 +1,20 @@
+{
+	"author": "Akira Nakayasu",
+	"description": "ENTTEC DMX USB Pro for Max. Message compatible with dmxusbpro 1.x (Olaf Matthes).",
+	"homepatcher": "",
+	"max_version_min": "8.0",
+	"name": "naka.dmxusbpro",
+	"os": {
+		"macintosh": {
+			"platform": ["x64", "aarch64"],
+			"min_version": "11.0"
+		},
+		"windows": {
+			"platform": ["x64"],
+			"min_version": "none"
+		}
+	},
+	"tags": ["dmx", "lighting", "enttec", "serial"],
+	"version": "0.1.0",
+	"website": "https://github.com/akiranakayasu-eng/naka.dmxusbpro"
+}

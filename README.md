@@ -67,6 +67,22 @@ ENTTEC の API（label 3/4/5/6/8/10）に沿った互換機でも使えます。
 - label 9（変化分）が無く、変化したフレームを label 5 で返します。オブジェクトはどちらでも同じ出力になるので、`receive` はそのまま使えます。
 - `breaktime` / `mabtime` で変えた値は電源を切ると戻ります（純正も同じ）。
 
+## インストール (Install)
+
+1. [Releases](https://github.com/akiranakayasu-eng/naka.dmxusbpro/releases) から `naka.dmxusbpro-<版>.zip` をダウンロードして展開する（開発中の最新版は Actions の各実行の `naka.dmxusbpro-package` から取れます）。
+2. 出てきた `naka.dmxusbpro` フォルダを Max の Packages フォルダに入れる。
+   - macOS: `~/Documents/Max 9/Packages/`
+   - Windows: `Documents\Max 9\Packages\`
+3. Max を再起動し、パッチに `naka.dmxusbpro` と打つ。help はオブジェクトを右クリック →「Open naka.dmxusbpro Help」。
+
+macOS で「開発元を検証できない」と出たときは、ターミナルで次を一度実行してください（署名はアドホック署名のみで、Apple の公証はまだ受けていません）。
+
+```sh
+xattr -dr com.apple.quarantine ~/Documents/Max\ 9/Packages/naka.dmxusbpro
+```
+
+パッケージの中身: `externals/`（macOS universal の `.mxo` と Windows x64 の `.mxe64`）、`help/`、`docs/refpages/`、`package-info.json`。
+
 ## ビルド (Build)
 
 CMake 3.25 以上。`max-sdk-base` は configure 時に自動取得します。
@@ -79,7 +95,13 @@ ctest --test-dir build -C Release      # プロトコルの単体テスト
 
 成果物は `externals/naka.dmxusbpro.mxo`（macOS universal）/ `externals/naka.dmxusbpro.mxe64`（Windows）に出力されます。help パッチは `help/naka.dmxusbpro.maxhelp`、リファレンスは `docs/refpages/` にあります。このフォルダを Max の検索パスに入れるか、リポジトリごと `~/Documents/Max 9/Packages/` に置いてください。
 
-GitHub Actions で macOS / Windows のビルドとテストを自動実行します（`.github/workflows/build.yml`）。
+GitHub Actions で macOS / Windows のビルドとテストを自動実行し、両方の外部オブジェクトをまとめた Max Package の zip を作ります（`.github/workflows/build.yml`）。手元でまとめるときは `scripts/make_package.sh <macの externals> <Windowsの externals> <出力先>` を使います。
+
+### リリース手順
+
+1. `package-info.json` の `version` と `naka.dmxusbpro.c` の `NAKA_DMXUSBPRO_VERSION` を同じ版に上げる（ずれていると CI が止まります）。
+2. `git tag v<版> && git push origin v<版>` すると、CI が zip を添付したリリースの下書きを作ります。
+3. GitHub の Releases で下書きを確認して公開する。
 
 ## ロードマップ
 

@@ -2,6 +2,8 @@ name: build
 
 on:
   push:
+    branches: ['**']
+    tags: ['v*']
   pull_request:
 
 jobs:
@@ -19,11 +21,61 @@ jobs:
         run: cmake --build build --config Release
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+      - name: Check and sign (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          BIN=externals/naka.dmxusbpro.mxo/Contents/MacOS/naka.dmxusbpro
+          lipo -info "$BIN"
+          lipo "$BIN" -verify_arch arm64 x86_64
+          codesign --force --deep --sign - externals/naka.dmxusbpro.mxo
+          codesign --verify --verbose externals/naka.dmxusbpro.mxo
+          # tar keeps the bundle's symlinks and permissions through upload-artifact
+          tar -cf externals-macOS.tar -C externals naka.dmxusbpro.mxo
+      - uses: actions/upload-artifact@v7
+        if: runner.os == 'macOS'
+        with:
+          name: externals-macOS
+          path: externals-macOS.tar
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: runner.os == 'Windows'
+        with:
+          name: externals-Windows
+          path: externals/naka.dmxusbpro.mxe64
+          if-no-files-found: error
+
+  package:
+    needs: build
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+      - name: Assemble Max package
+        id: pkg
+        run: |
+          mkdir -p mac out
+          tar -xf artifacts/externals-macOS/externals-macOS.tar -C mac
+          ZIP=$(scripts/make_package.sh mac artifacts/externals-Windows out)
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+          echo "version=$(basename "$ZIP" .zip | sed 's/^naka.dmxusbpro-//')" >> "$GITHUB_OUTPUT"
+          find out/naka.dmxusbpro -maxdepth 3 | sort
       - uses: actions/upload-artifact@v7
         with:
-          name: naka.dmxusbpro-${{ runner.os }}
-          path: |
-            externals/
-            help/
-            docs/
-          if-no-files-found: warn
+          name: naka.dmxusbpro-package
+          path: ${{ steps.pkg.outputs.zip }}
+          if-no-files-found: error
+      - name: Draft release (tag push only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${GITHUB_REF_NAME}" != "v${{ steps.pkg.outputs.version }}" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match package version ${{ steps.pkg.outputs.version }}" >&2
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" "${{ steps.pkg.outputs.zip }}" \
+            --draft --title "naka.dmxusbpro ${{ steps.pkg.outputs.version }}" --generate-notes
