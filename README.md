@@ -113,7 +113,30 @@ cmake --build build --config Release
 ctest --test-dir build -C Release      # プロトコル（USB Pro / Art-Net / sACN）の単体テスト
 ```
 
-成果物は `externals/naka.dmxusbpro.mxo` と `externals/naka.artnet.mxo`（macOS universal）/ `.mxe64`（Windows）に出力されます。help パッチは `help/`、リファレンスは `docs/refpages/` にあります。このフォルダを Max の検索パスに入れるか、リポジトリごと `~/Documents/Max 9/Packages/` に置いてください。
+## naka.miseru（miseru の色→DMX 変換）
+
+[miseru](https://github.com/akiranakayasu-eng/miseru-lighting) と同じライト定義・同じ計算で、「明るさ・色の濃さ・色相・白のあたたかさ」の 4 つの数字から DMX の値を作ります。RGBW でも CCT 付きでも、同じ 4 つの数字で動かせます。変換するだけなので、出力は `naka.artnet`（ODE や自作の箱）か `naka.dmxusbpro` につないでください。
+
+```
+[studio(     ← TMU の撮影スタジオのパッチ（arri1-3、diva1-4）
+[look all 1 0 0 5600(   ← 全部、明るさ 1、白、5600K
+[naka.miseru]
+[naka.artnet 10.7.157.222 0]
+```
+
+| メッセージ | 意味 |
+|---|---|
+| `patch <name> <type> <address> [<group>]` | ライトを足す。type は `dimmer` `rgb` `rgbw` `dim-rgb` `dim-rgbw` `arri-l7c` `diva-lite` |
+| `studio` / `clear` | スタジオのパッチを読む / 全部消す |
+| `look <target> <intensity> <sat> <hue> <cct>` | 見た目をまとめて指定。target はライト名・グループ名・`all`。intensity と sat は 0〜1、hue は 0〜360、cct はケルビン |
+| `intensity` `sat` `hue` `cct` `<target> <value>` | 1 つだけ変える |
+| `master <0..1>` / `blackout <0\|1>` | 全体の明るさ / 全消灯（見た目は保つ） |
+| `allon` / `reset` | 消えているライトを点ける / 全部最初の状態へ |
+| `bang` / `types` / `print` | 出し直す / 種類を表示 / パッチを表示 |
+
+出力は `ch 1 <値...>`（最後のパッチ済みチャンネルまで）で、`naka.artnet` と `naka.dmxusbpro` にそのまま渡せます。変換の結果は miseru（TypeScript 版）と同じ値になることをテストで確認しています。Diva-Lite のチャンネル配置は miseru と同様に仮の定義です。
+
+成果物は `externals/naka.dmxusbpro.mxo`、`externals/naka.artnet.mxo`、`externals/naka.miseru.mxo`（macOS universal）/ `.mxe64`（Windows）に出力されます。help パッチは `help/`、リファレンスは `docs/refpages/` にあります。このフォルダを Max の検索パスに入れるか、リポジトリごと `~/Documents/Max 9/Packages/` に置いてください。
 
 GitHub Actions で macOS / Windows のビルドとテストを自動実行します（`.github/workflows/build.yml`）。
 

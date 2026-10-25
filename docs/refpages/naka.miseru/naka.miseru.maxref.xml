@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<c74object name="naka.miseru" module="max" category="DMX">
+  <digest>Brightness, colour and white warmth to DMX values, the miseru way</digest>
+  <description>
+    naka.miseru turns a light's look (brightness, colour strength, hue and the warmth of its white)
+    into DMX channel values, with the same fixture definitions and maths as the miseru lighting app.
+    RGBW, CCT and cross-fade fixtures are all driven by the same four numbers. It only converts:
+    connect its outlet to naka.artnet or naka.dmxusbpro to reach the lights.
+  </description>
+  <metadatalist>
+    <metadata name="author">Akira Nakayasu</metadata>
+    <metadata name="tag">DMX</metadata>
+    <metadata name="tag">lighting</metadata>
+    <metadata name="tag">miseru</metadata>
+  </metadatalist>
+  <inletlist>
+    <inlet id="0" type="list"><digest>patch, look and control messages</digest></inlet>
+  </inletlist>
+  <outletlist>
+    <outlet id="0" type="list"><digest>ch 1 &lt;values...&gt;: the frame up to the last patched channel</digest></outlet>
+  </outletlist>
+  <methodlist>
+    <method name="patch">
+      <arglist><arg name="name" type="symbol"/><arg name="type" type="symbol"/><arg name="address" type="int"/><arg name="group" type="symbol" optional="1"/></arglist>
+      <digest>Add a light</digest>
+      <description>Types: dimmer, rgb, rgbw, dim-rgb, dim-rgbw, arri-l7c, diva-lite. Address 1-512. Lights cannot share channels.</description>
+    </method>
+    <method name="studio"><digest>Load the TMU photo studio patch (arri1-3, diva1-4)</digest></method>
+    <method name="clear"><digest>Remove all lights</digest></method>
+    <method name="look">
+      <arglist><arg name="target" type="symbol"/><arg name="intensity" type="float"/><arg name="sat" type="float"/><arg name="hue" type="float"/><arg name="cct" type="float"/></arglist>
+      <digest>Set a whole look</digest>
+      <description>target is a light name, a group name or all. intensity and sat are 0-1 (sat 0 = white, 1 = colour only), hue is 0-360, cct is the white's colour temperature in kelvin.</description>
+    </method>
+    <method name="intensity"><arglist><arg name="target" type="symbol"/><arg name="value" type="float"/></arglist><digest>Set brightness (0-1)</digest></method>
+    <method name="sat"><arglist><arg name="target" type="symbol"/><arg name="value" type="float"/></arglist><digest>Set colour strength (0-1)</digest></method>
+    <method name="hue"><arglist><arg name="target" type="symbol"/><arg name="value" type="float"/></arglist><digest>Set hue (0-360)</digest></method>
+    <method name="cct"><arglist><arg name="target" type="symbol"/><arg name="value" type="float"/></arglist><digest>Set white warmth in kelvin</digest></method>
+    <method name="master"><arglist><arg name="value" type="float"/></arglist><digest>Overall brightness (0-1)</digest></method>
+    <method name="blackout"><arglist><arg name="on" type="int"/></arglist><digest>All lights dark; looks are kept</digest></method>
+    <method name="allon"><digest>Switch on the lights that are off, at full brightness</digest></method>
+    <method name="reset"><digest>Every light back to off, white, 5600 K</digest></method>
+    <method name="bang"><digest>Output the frame again</digest></method>
+    <method name="types"><digest>Print the fixture types</digest></method>
+    <method name="print"><digest>Print the patch</digest></method>
+  </methodlist>
+  <seealsolist>
+    <seealso name="naka.artnet"/>
+    <seealso name="naka.dmxusbpro"/>
+  </seealsolist>
+</c74object>

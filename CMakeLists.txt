@@ -41,9 +41,18 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_compile_definitions(netdmx_core PRIVATE _DEFAULT_SOURCE)
 endif()
 
+# miseru colour/fixture engine (C port), used by naka.miseru
+add_library(miseru_core STATIC source/core/miseru_render.c)
+target_include_directories(miseru_core PUBLIC source/core)
+set_target_properties(miseru_core PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 99)
+if(NOT WIN32)
+  target_link_libraries(miseru_core PUBLIC m)
+endif()
+
 if(DMXUSBPRO_BUILD_EXTERNAL)
   add_subdirectory(source/projects/naka.dmxusbpro)
   add_subdirectory(source/projects/naka.artnet)
+  add_subdirectory(source/projects/naka.miseru)
 endif()
 
 if(DMXUSBPRO_BUILD_TESTS)
@@ -60,4 +69,8 @@ if(DMXUSBPRO_BUILD_TESTS)
   add_executable(test_netdmx tests/test_netdmx.c)
   target_link_libraries(test_netdmx PRIVATE netdmx_core)
   add_test(NAME netdmx COMMAND test_netdmx)
+
+  add_executable(test_miseru tests/test_miseru.c)
+  target_link_libraries(test_miseru PRIVATE miseru_core)
+  add_test(NAME miseru COMMAND test_miseru)
 endif()
