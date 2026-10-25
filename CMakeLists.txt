@@ -28,8 +28,22 @@ add_library(dmxusbpro_core STATIC
 target_include_directories(dmxusbpro_core PUBLIC source/core)
 set_target_properties(dmxusbpro_core PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 99)
 
+# Art-Net / sACN packets and UDP sockets, used by naka.artnet
+add_library(netdmx_core STATIC
+  source/core/netdmx_protocol.c
+  source/core/udp_socket.c)
+target_include_directories(netdmx_core PUBLIC source/core)
+set_target_properties(netdmx_core PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 99)
+if(WIN32)
+  target_link_libraries(netdmx_core PUBLIC ws2_32 iphlpapi)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  # getaddrinfo / inet_pton need POSIX declarations under -std=c99
+  target_compile_definitions(netdmx_core PRIVATE _DEFAULT_SOURCE)
+endif()
+
 if(DMXUSBPRO_BUILD_EXTERNAL)
   add_subdirectory(source/projects/naka.dmxusbpro)
+  add_subdirectory(source/projects/naka.artnet)
 endif()
 
 if(DMXUSBPRO_BUILD_TESTS)
@@ -42,4 +56,8 @@ if(DMXUSBPRO_BUILD_TESTS)
   add_executable(test_device tests/test_device.c)
   target_link_libraries(test_device PRIVATE dmxusbpro_core Threads::Threads)
   add_test(NAME device COMMAND test_device)
+
+  add_executable(test_netdmx tests/test_netdmx.c)
+  target_link_libraries(test_netdmx PRIVATE netdmx_core)
+  add_test(NAME netdmx COMMAND test_netdmx)
 endif()

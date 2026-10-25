@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<c74object name="naka.artnet" module="max" category="DMX">
+  <digest>Send DMX over Art-Net or sACN</digest>
+  <description>
+    naka.artnet sends one DMX universe over the network as Art-Net 4 or sACN (ANSI E1.31),
+    for example to an ENTTEC ODE or another Ethernet-DMX node. It takes the same value
+    messages as naka.dmxusbpro, so a patch can switch between USB and network output by
+    changing the object name.
+  </description>
+  <metadatalist>
+    <metadata name="author">Akira Nakayasu</metadata>
+    <metadata name="tag">DMX</metadata>
+    <metadata name="tag">lighting</metadata>
+    <metadata name="tag">network</metadata>
+  </metadatalist>
+  <inletlist>
+    <inlet id="0" type="list">
+      <digest>&lt;channel&gt; &lt;value&gt; pairs and control messages</digest>
+    </inlet>
+  </inletlist>
+  <outletlist>
+    <outlet id="0" type="list"><digest>Replies: node &lt;ip&gt; &lt;short name&gt; &lt;long name&gt; &lt;port-address ...&gt;, iface &lt;name&gt; &lt;ip&gt; &lt;netmask&gt; &lt;broadcast&gt;</digest></outlet>
+    <outlet id="1" type="int"><digest>Sending state (0/1)</digest></outlet>
+  </outletlist>
+  <objarglist>
+    <objarg name="host" optional="1" type="symbol"><digest>Receiver IP address (none = broadcast / multicast)</digest></objarg>
+    <objarg name="universe" optional="1" type="int"><digest>Art-Net port-address or sACN universe</digest></objarg>
+  </objarglist>
+  <methodlist>
+    <method name="list">
+      <arglist><arg name="channel" type="int"/><arg name="value" type="number"/></arglist>
+      <digest>Set channels with &lt;channel&gt; &lt;value&gt; pairs</digest>
+      <description>Channel 1-512, value 0-255. Channel 0 sets every channel. The first value starts sending unless stop was sent.</description>
+    </method>
+    <method name="ch">
+      <arglist><arg name="start" type="int"/><arg name="values" type="list"/></arglist>
+      <digest>Set consecutive channels from a start channel</digest>
+    </method>
+    <method name="blackout"><arglist><arg name="on" type="int"/></arglist><digest>Temporarily output zeros (values are kept)</digest></method>
+    <method name="bang"><digest>Send the current frame now</digest></method>
+    <method name="start"><digest>Start sending</digest></method>
+    <method name="stop"><digest>Stop sending</digest>
+      <description>Values are kept and new values don't restart sending until start. With sACN, receivers are told the stream ended. Receivers that lock onto one sender release it after their timeout.</description></method>
+    <method name="poll"><arglist><arg name="address" type="symbol" optional="1"/></arglist><digest>Find Art-Net nodes</digest>
+      <description>Sends ArtPoll to the broadcast address (or the given address). Each reply comes out of the left outlet as node &lt;ip&gt; &lt;short name&gt; &lt;long name&gt; followed by the port-addresses of its outputs.</description></method>
+    <method name="getifaces"><digest>List network interfaces</digest></method>
+    <method name="print"><digest>Print the object state</digest></method>
+  </methodlist>
+  <attributelist>
+    <attribute name="protocol" get="1" set="1" type="symbol" size="1"><digest>artnet (default) or sacn</digest></attribute>
+    <attribute name="universe" get="1" set="1" type="int" size="1"><digest>Art-Net port-address 0-32767 (Net * 256 + Sub-Net * 16 + Universe), or sACN universe 1-63999</digest></attribute>
+    <attribute name="host" get="1" set="1" type="symbol" size="1"><digest>Destination IP address; empty = broadcast (Art-Net) or multicast (sACN)</digest></attribute>
+    <attribute name="bind" get="1" set="1" type="symbol" size="1"><digest>Local IP address to send from; empty = any interface</digest></attribute>
+    <attribute name="channels" get="1" set="1" type="int" size="1"><digest>Number of channels to send (1-512)</digest></attribute>
+    <attribute name="refresh" get="1" set="1" type="int" size="1"><digest>Maximum frames per second (1-44)</digest></attribute>
+    <attribute name="keepalive" get="1" set="1" type="int" size="1"><digest>Repeat an unchanged frame every this many ms (0 = off, default 1000)</digest></attribute>
+    <attribute name="priority" get="1" set="1" type="int" size="1"><digest>sACN priority (0-200, default 100)</digest></attribute>
+    <attribute name="sourcename" get="1" set="1" type="symbol" size="1"><digest>sACN source name</digest></attribute>
+  </attributelist>
+  <seealsolist>
+    <seealso name="naka.dmxusbpro"/>
+    <seealso name="udpsend"/>
+  </seealsolist>
+</c74object>

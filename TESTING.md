@@ -70,6 +70,30 @@
 - [ ] 別の Mac で、ダウンロードしたファイルを入れて初回に開けるか（署名なしの警告が出たら手順を README に書く）
 - [ ] `Packages/naka.dmxusbpro/` に置くだけで、オブジェクト・help・リファレンスがすべて使える
 
+## naka.artnet
+
+ネットワークの中身は Wireshark（フィルタ `artnet || acn`）で見ると確実です。
+
+### 必須
+
+- [ ] Max でオブジェクトが読み込め、コンソールに版の表示が出る
+- [ ] `getifaces` で有線と Wi-Fi のアドレスが出る
+- [ ] `poll` でスタジオの ODE Mk2 が `node 10.7.157.222 ...` として出る
+- [ ] `[naka.artnet 10.7.157.222 0]` で help の basic タブのスライダー 1 を動かすと ch1 の照明が反応する（iPad の Luminair を止めてから）
+- [ ] 値を変えない間も 1 秒ごとにパケットが出ている（Wireshark）
+- [ ] `stop` でパケットが止まり、スライダーを動かしても送らない。`start` で再開する
+- [ ] `blackout 1` / `blackout 0` で消灯 / 復帰する
+- [ ] LAN ケーブルを抜いても Max が落ちず、右アウトレットが 0 になり、挿し直すと 1 に戻る
+- [ ] オブジェクトを削除したりパッチを閉じたりしても Max が落ちない
+- [ ] Windows でも上が通る（初回にファイアウォールの許可を求められたら許可する）
+
+### できれば
+
+- [ ] `@protocol sacn @universe 1` で sACN を受ける機器（または sACNView）が値を受け取る。`stop` で受信側が「終了」と表示する
+- [ ] `@bind <有線の IP>` にすると、Wi-Fi がつながっていても有線から出る
+- [ ] オブジェクトを 2 つ（universe 0 と 1）置いて同時に送れる
+- [ ] 自作の箱（または miseru の `npm run box:sim -- --artnet-in`）に送ると、`GET /api/dmx` の holder が自分の IP になり、`stop` から 5 秒で外れる
+
 ## 不具合の報告に書いてほしいこと
 
 - OS と Max のバージョン、Mac なら Apple Silicon か Intel か
