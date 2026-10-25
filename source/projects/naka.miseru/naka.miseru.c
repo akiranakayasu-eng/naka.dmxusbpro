@@ -55,7 +55,7 @@ static void miseru_assist(t_miseru *x, void *b, long m, long a, char *s);
 static void miseru_patch(t_miseru *x, t_symbol *s, long argc, t_atom *argv);
 static void miseru_studio(t_miseru *x);
 static void miseru_clear(t_miseru *x);
-static void miseru_look(t_miseru *x, t_symbol *s, long argc, t_atom *argv);
+static void miseru_cmd_look(t_miseru *x, t_symbol *s, long argc, t_atom *argv);
 static void miseru_part(t_miseru *x, t_symbol *s, long argc, t_atom *argv);
 static void miseru_master(t_miseru *x, double v);
 static void miseru_blackout(t_miseru *x, long on);
@@ -72,7 +72,7 @@ void ext_main(void *r)
     class_addmethod(c, (method)miseru_patch,     "patch",     A_GIMME, 0);
     class_addmethod(c, (method)miseru_studio,    "studio",    0);
     class_addmethod(c, (method)miseru_clear,     "clear",     0);
-    class_addmethod(c, (method)miseru_look,      "look",      A_GIMME, 0);
+    class_addmethod(c, (method)miseru_cmd_look,   "look",      A_GIMME, 0);
     class_addmethod(c, (method)miseru_part,      "intensity", A_GIMME, 0);
     class_addmethod(c, (method)miseru_part,      "sat",       A_GIMME, 0);
     class_addmethod(c, (method)miseru_part,      "hue",       A_GIMME, 0);
@@ -195,7 +195,7 @@ static int target_lights(t_miseru *x, t_atom *a, int *hit)
     return n;
 }
 
-static void miseru_look(t_miseru *x, t_symbol *s, long argc, t_atom *argv)
+static void miseru_cmd_look(t_miseru *x, t_symbol *s, long argc, t_atom *argv)
 {
     int hit[MISERU_MAX_LIGHTS], n, i;
     if (argc < 5) {
