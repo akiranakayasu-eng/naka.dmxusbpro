@@ -1,7 +1,7 @@
 # naka.dmxusbpro for Max
 
-ENTTEC DMX USB Pro を Cycling '74 Max から直接動かすためのオープンソース外部オブジェクトです。
-An open-source Max external for the ENTTEC DMX USB Pro (macOS Apple Silicon / Intel, Windows).
+ENTTEC DMX USB Pro を Cycling '74 Max から直接動かすためのオープンソース外部オブジェクトです。Art-Net / sACN でネットワークに送る [`naka.artnet`](#nakaartnetart-net--sacn-送信) も同梱しています。
+An open-source Max external for the ENTTEC DMX USB Pro (macOS Apple Silicon / Intel, Windows), plus `naka.artnet` for Art-Net / sACN output.
 
 > Status: 開発初期（プロトコル部は単体テスト済み、実機・Max上での動作は未確認）
 
@@ -67,6 +67,42 @@ ENTTEC の API（label 3/4/5/6/8/10）に沿った互換機でも使えます。
 - label 9（変化分）が無く、変化したフレームを label 5 で返します。オブジェクトはどちらでも同じ出力になるので、`receive` はそのまま使えます。
 - `breaktime` / `mabtime` で変えた値は電源を切ると戻ります（純正も同じ）。
 
+## naka.artnet（Art-Net / sACN 送信）
+
+同じリポジトリに、ネットワーク越しに DMX を送る `naka.artnet` も入っています。ENTTEC ODE などの Ethernet-DMX ノードや、miseru 用の自作の箱に、Max から直接 Art-Net 4 または sACN（ANSI E1.31）を送ります。値の送り方は `naka.dmxusbpro` と同じなので、オブジェクト名を書き換えるだけで USB 出力とネットワーク出力を切り替えられます。1 つのオブジェクトが 1 ユニバースを送ります。
+
+```
+[naka.artnet 10.7.157.222 0]                 ← <host> <universe>。スタジオの ODE Mk2 の例
+[naka.artnet @protocol sacn @universe 1]     ← sACN をマルチキャストで
+[naka.artnet 10.7.157.222 @bind 10.7.157.31] ← 送信元の IP を固定
+```
+
+| 入力メッセージ | 内容 |
+|---|---|
+| `<ch> <val> [<ch> <val> ...]` / `ch <start> v1 v2 ...` | naka.dmxusbpro と同じ。最初の値で送信が始まる |
+| `blackout 1` / `blackout 0` | 一時的に全チャンネル 0 / 元に戻す |
+| `bang` | いまのフレームをすぐ送る |
+| `start` / `stop` | 送信を始める / 止める。`stop` のあとは値を変えても送らず、`start` で再開。sACN では止めるときに終了の印（Stream Terminated）を送る |
+| `poll [<アドレス>]` | ArtPoll でノードを探す。左アウトレットに `node <ip> <短い名前> <長い名前> <出力のユニバース...>` |
+| `getifaces` | このコンピュータのネットワークの一覧。左アウトレットに `iface <名前> <ip> <netmask> <broadcast>` |
+| `print` | 設定と状態を Max コンソールへ |
+
+| 属性 | 既定値 | 内容 |
+|---|---|---|
+| `@protocol` | `artnet` | `artnet` または `sacn` |
+| `@universe` | 0（sACN は 1） | Art-Net はポートアドレス 0–32767（Net×256 + Sub-Net×16 + Universe）。sACN は 1–63999 |
+| `@host` | 空 | 送り先の IP。空なら Art-Net はブロードキャスト、sACN はマルチキャスト（239.255.x.x） |
+| `@bind` | 空 | 送信に使う自分の IP。Wi-Fi と有線の両方があるときに指定する |
+| `@channels` | 512 | 送るチャンネル数（Art-Net は偶数に切り上げ） |
+| `@refresh` | 40 | 最大送信レート（1–44 fps） |
+| `@keepalive` | 1000 | 値が変わらなくても、この間隔（ms）で同じフレームを送り直す。0 で止める |
+| `@priority` | 100 | sACN の優先度（0–200） |
+| `@sourcename` | `naka.artnet (Max)` | sACN の送信元の名前 |
+
+右アウトレットは送信中なら 1、止めているか送信に失敗しているなら 0。
+
+**1 つの送り手しか受け付けない受信機について**: miseru 用の自作の箱は、最初に来た送り手の IP に「ロック」し、フレームが 5 秒途切れるとロックを外して全消灯します（[仕様 v0](https://github.com/akiranakayasu-eng/claude-shared-docs/blob/main/handoffs/2026-10-25_lighting-system__to__air-kicad_%E8%87%AA%E4%BD%9CODE%E3%81%AEWebSocket%E4%BB%95%E6%A7%98v0.md)）。naka.artnet は既定で 1 秒ごとに送り直すので、パッチを開いている間はロックを持ち続けます。ほかの人に照明を渡すときは `stop` を送ってください。送信元の IP が変わると別の送り手と見なされるので、`@bind` で固定しておくと確実です。ENTTEC ODE Mk2 は複数の送り手を受けたときの扱いが本体の設定（マージなど）次第なので、スタジオの iPad（Luminair）が送っている間は Max から同じユニバースに送らないでください。
+
 ## ビルド (Build)
 
 CMake 3.25 以上。`max-sdk-base` は configure 時に自動取得します。
@@ -74,10 +110,10 @@ CMake 3.25 以上。`max-sdk-base` は configure 時に自動取得します。
 ```sh
 cmake -B build
 cmake --build build --config Release
-ctest --test-dir build -C Release      # プロトコルの単体テスト
+ctest --test-dir build -C Release      # プロトコル（USB Pro / Art-Net / sACN）の単体テスト
 ```
 
-成果物は `externals/naka.dmxusbpro.mxo`（macOS universal）/ `externals/naka.dmxusbpro.mxe64`（Windows）に出力されます。help パッチは `help/naka.dmxusbpro.maxhelp`、リファレンスは `docs/refpages/` にあります。このフォルダを Max の検索パスに入れるか、リポジトリごと `~/Documents/Max 9/Packages/` に置いてください。
+成果物は `externals/naka.dmxusbpro.mxo` と `externals/naka.artnet.mxo`（macOS universal）/ `.mxe64`（Windows）に出力されます。help パッチは `help/`、リファレンスは `docs/refpages/` にあります。このフォルダを Max の検索パスに入れるか、リポジトリごと `~/Documents/Max 9/Packages/` に置いてください。
 
 GitHub Actions で macOS / Windows のビルドとテストを自動実行します（`.github/workflows/build.yml`）。
 
